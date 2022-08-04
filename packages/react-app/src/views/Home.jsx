@@ -1,7 +1,8 @@
-import { useContractReader } from "eth-hooks";
-import { ethers } from "ethers";
 import React from "react";
-import { Link } from "react-router-dom";
+import { useContractReader } from "eth-hooks";
+// import { ethers } from "ethers";
+// import { Link } from "react-router-dom";
+import { Image } from 'antd';
 
 /**
  * web3 props can be passed from '../App.jsx' into your local view component for use
@@ -16,109 +17,17 @@ function Home({ yourLocalBalance, readContracts }) {
 
   return (
     <div>
-      <div style={{ margin: 32 }}>
-        <h1 style={{ marginBottom: 10 }}>This is an example app of unlock protocol 👜 + scaffold-eth 🧑‍🔧</h1>
-        <h2 style={{ marginBottom: 20 }}>Head to the dashboard to see some pretty cool stuff 😉</h2>
-        <h3 style={{ marginBottom: 32 }}>Hint: First setup unlock protocol variables in settings tab to get started</h3>
-        <span style={{ marginRight: 8 }}>📝</span>
-        This Is Your App Home. You can start editing it in{" "}
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          packages/react-app/src/views/Home.jsx
-        </span>
-      </div>
-      <div style={{ margin: 32 }}>
-        <span style={{ marginRight: 8 }}>✏️</span>
-        Edit your smart contract{" "}
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          YourContract.sol
-        </span>{" "}
-        in{" "}
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          packages/hardhat/contracts
-        </span>
-      </div>
-      {!purpose ? (
-        <div style={{ margin: 32 }}>
-          <span style={{ marginRight: 8 }}>👷‍♀️</span>
-          You haven't deployed your contract yet, run
-          <span
-            className="highlight"
-            style={{
-              marginLeft: 4,
-              /* backgroundColor: "#f9f9f9", */ padding: 4,
-              borderRadius: 4,
-              fontWeight: "bolder",
-            }}
-          >
-            yarn chain
-          </span>{" "}
-          and{" "}
-          <span
-            className="highlight"
-            style={{
-              marginLeft: 4,
-              /* backgroundColor: "#f9f9f9", */ padding: 4,
-              borderRadius: 4,
-              fontWeight: "bolder",
-            }}
-          >
-            yarn deploy
-          </span>{" "}
-          to deploy your first contract!
-        </div>
-      ) : (
-        <div style={{ margin: 32 }}>
-          <span style={{ marginRight: 8 }}>🤓</span>
-          The "purpose" variable from your contract is{" "}
-          <span
-            className="highlight"
-            style={{
-              marginLeft: 4,
-              /* backgroundColor: "#f9f9f9", */ padding: 4,
-              borderRadius: 4,
-              fontWeight: "bolder",
-            }}
-          >
-            {purpose}
-          </span>
-        </div>
-      )}
-
-      <div style={{ margin: 32 }}>
-        <span style={{ marginRight: 8 }}>🤖</span>
-        An example prop of your balance{" "}
-        <span style={{ fontWeight: "bold", color: "green" }}>({ethers.utils.formatEther(yourLocalBalance)})</span> was
-        passed into the
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          Home.jsx
-        </span>{" "}
-        component from
-        <span
-          className="highlight"
-          style={{ marginLeft: 4, /* backgroundColor: "#f9f9f9", */ padding: 4, borderRadius: 4, fontWeight: "bolder" }}
-        >
-          App.jsx
-        </span>
-      </div>
-      <div style={{ margin: 32 }}>
-        <span style={{ marginRight: 8 }}>💭</span>
-        Check out the <Link to="/hints">"Hints"</Link> tab for more tips.
-      </div>
-      <div style={{ margin: 32 }}>
-        <span style={{ marginRight: 8 }}>🛠</span>
-        Tinker with your smart contract using the <Link to="/debug">"Debug Contract"</Link> tab.
+      <div style={{ marginBottom: 50 }}>
+        <h1 style={{ marginBottom: 10, marginTop: 20 }}>Welcome to 10 PointPunters</h1>
+        <h2 style={{ marginBottom: 20 }}>Your one stop shop for professional sports betting tips, news and analysis.</h2>
+        {/* <img src={"../../public/logo192.png"} alt="Sports and money" /> */}
+        <Image width={500}  src="https://bafybeic5qstvmea6e7mm6ubzgwmo6ubu72ueyokmeuldr5i7c6sdvxew2y.ipfs.nftstorage.link/10pointp-cover.png" />
+        <h2 style={{ marginTop: 15 }}>Head to the dashboard to see some of our upcoming releases 😉</h2>
+        <p style={{  marginBottom: 50, maxWidth: 700, display: "inline-flex", alignSelf: "center"}}>
+          Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magnam officiis
+          aliquam rem illo iure aliquid, pariatur iusto provident eligendi ducimus
+          consequuntur, dicta fugit ut laudantium quisquam, aperiam incidunt. Deleniti, odio?
+        </p>
       </div>
     </div>
   );
