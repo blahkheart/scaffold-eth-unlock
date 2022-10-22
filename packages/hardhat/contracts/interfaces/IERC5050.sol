@@ -144,12 +144,12 @@ struct Object {
 /// @param from The initiating object
 /// @param to The receiving object
 /// @param state The state contract
-/// @param lockAddress lock address for the action (zero address if no lock)
+/// @param data Additional data with no specified format
 struct Action {
     bytes4 selector;
     address user;
     Object from;
     Object to;
     address state;
-    address lockAddress;
+    bytes data;
 }

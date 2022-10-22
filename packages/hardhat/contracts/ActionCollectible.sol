@@ -7,19 +7,26 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "base64-sol/base64.sol";
 import "./ToColor.sol";
-import "./interfaces/IERC5050.sol";
+import {IERC5050Sender, IERC5050Receiver, Action} from "./interfaces/IERC5050.sol";
 import {ActionsSet} from "./libraries/ActionsSet.sol";
+import "./interfaces/IPublicLockV10.sol";
 
 // GET LISTED ON OPENSEA: https://testnets.opensea.io/get-listed/step-two
 
-contract YourCollectible is ERC721Enumerable, Ownable {
+contract ActionCollectible is
+    IERC5050Sender,
+    IERC5050Receiver,
+    ERC721Enumerable,
+    Ownable
+{
+    using Address for address;
     using Strings for uint256;
     using Strings for uint160;
     using ToColor for bytes3;
     using Counters for Counters.Counter;
     using ActionsSet for ActionsSet.Set;
+    IPublicLock public publicLock;
     Counters.Counter private _tokenIds;
-
 
     constructor() ERC721("Loogies", "LOOG") {}
 
@@ -34,6 +41,14 @@ contract YourCollectible is ERC721Enumerable, Ownable {
 
     mapping(address => mapping(bytes4 => address)) actionApprovals;
     mapping(address => mapping(address => bool)) operatorApprovals;
+
+    function setActionLock(IPublicLock _lockAddress) public onlyOwner {
+        publicLock = _lockAddress;
+    }
+
+    function hasValidActionKey(address _user) public view returns (bool hasKey) {
+        hasKey = publicLock.getHasValidKey(_user);
+    }
 
     function mintItem() public returns (uint256) {
         require(block.timestamp < mintDeadline, "DONE MINTING");
@@ -140,9 +155,9 @@ contract YourCollectible is ERC721Enumerable, Ownable {
         return render;
     }
 
-    function setProxyRegistry(address registry) external virtual onlyOwner {
-        _setProxyRegistry(registry);
-    }
+    // function setProxyRegistry(address registry) external virtual onlyOwner {
+    //     _setProxyRegistry(registry);
+    // }
 
     function _registerAction(string memory action) internal {
         _registerSendable(action);
@@ -159,51 +174,6 @@ contract YourCollectible is ERC721Enumerable, Ownable {
     //         super.supportsInterface(interfaceId);
     // }
 
-    // modifier onlySendableAction(Action memory action) {
-    //     require(
-    //         reentrancyLock == _NOT_ENTERED,
-    //         "ERC5050: reentrant call"
-    //     );
-    //     require(
-    //         _sendableActions.contains(action.selector),
-    //         "ERC5050: invalid action"
-    //     );
-    //     require(
-    //         _isApprovedOrSelf(action.user, action.selector),
-    //         "ERC5050: unapproved sender"
-    //     );
-    //     require(
-    //         action.from._address == address(this) ||
-    //             getSenderProxy(action.from._address) == address(this),
-    //         "ERC5050: invalid from address"
-    //     );
-    //     _;
-    // }
-
-    // modifier onlyReceivableAction(Action calldata action, uint256 nonce) {
-    //     require(
-    //         action.to._address == address(this) ||
-    //             getReceiverProxy(action.to._address) == address(this),
-    //         "ERC5050: invalid receiver"
-    //     );
-    //     require(
-    //         _receivableActions.contains(action.selector),
-    //         "ERC5050: invalid action"
-    //     );
-    //     require(
-    //         action.from._address == address(0) ||
-    //             action.from._address == msg.sender ||
-    //             getSenderProxy(action.from._address) == msg.sender,
-    //         "ERC5050: invalid sender"
-    //     );
-    //     require(
-    //         (action.from._address != address(0) && action.user == tx.origin) ||
-    //             action.user == msg.sender,
-    //         "ERC5050: invalid sender"
-    //     );
-    //     _;
-    // }
-
     function receivableActions() external view returns (string[] memory) {
         return _receivableActions.names();
     }
@@ -212,7 +182,6 @@ contract YourCollectible is ERC721Enumerable, Ownable {
         external
         payable
         virtual
-        onlyReceivableAction(action, nonce)
     {
         _onActionReceived(action, nonce);
     }
@@ -221,24 +190,43 @@ contract YourCollectible is ERC721Enumerable, Ownable {
         internal
         virtual
     {
-        if (action.state != address(0)) {
-            address next = getReceiverProxy(action.state);
-            require(next.isContract(), "ERC5050: invalid state");
-            try
-                IERC5050Receiver(next).onActionReceived{value: msg.value}(
-                    action,
-                    nonce
-                )
-            {} catch (bytes memory reason) {
-                if (reason.length == 0) {
-                    revert("ERC5050: call to non ERC5050Receiver");
-                } else {
-                    assembly {
-                        revert(add(32, reason), mload(reason))
-                    }
+        // if (action.state != address(0)) {
+        require(action.state != address(0), "Zero address state");
+        address next = action.state;
+        require(next.isContract(), "ERC5050: invalid state");
+        try
+            IERC5050Receiver(next).onActionReceived{value: msg.value}(
+                action,
+                nonce
+            )
+        {} catch (bytes memory reason) {
+            if (reason.length == 0) {
+                revert("ERC5050: call to non ERC5050Receiver");
+            } else {
+                assembly {
+                    revert(add(32, reason), mload(reason))
                 }
             }
         }
+        // }
+        // else {
+        // Implement on state
+        //     address next = action.to._address;
+        //     require(next.isContract(), "ERC5050: invalid state");
+        //     if (next == address(this)) {
+        //         require(
+        //             _receivableActions.contains(action.selector),
+        //             "ERC5050: invalid action"
+        //         );
+        //         require(
+        //             (action.from._address != address(0) &&
+        //                 action.user == tx.origin) || action.user == msg.sender,
+        //             "ERC5050: invalid sender"
+        //         );
+        //         // Do the action here
+
+        //     }
+        // }
         emit ActionReceived(
             action.selector,
             action.user,
@@ -252,6 +240,22 @@ contract YourCollectible is ERC721Enumerable, Ownable {
     }
 
     function sendAction(Action memory action) external payable virtual {
+        require(
+            _sendableActions.contains(action.selector),
+            "ERC5050: invalid action"
+        );
+        require(
+            _isApprovedOrSelf(action.user, action.selector),
+            "ERC5050: unapproved sender"
+        );
+        // require(
+        //     action.from._address == address(this),
+        //     "ERC5050: invalid from address"
+        // );
+        // require(
+        //     hasValidActionKey(msg.sender),
+        //     "Invalid key for action"
+        // );
         _sendAction(action);
     }
 
@@ -313,35 +317,30 @@ contract YourCollectible is ERC721Enumerable, Ownable {
         return operatorApprovals[_account][_operator];
     }
 
-    function _sendAction(Action memory action) public payable {
+    function _sendAction(Action memory action) private {
+        address next;
         bool toIsContract = action.to._address.isContract();
         bool stateIsContract = action.state.isContract();
-        address next;
-        if (toIsContract) {
+        require(toIsContract, "Send Action: Invalid 'to' contract");
+        require(stateIsContract, "Send Action: Invalid state");
+        if (action.to._address == address(this)) {
             next = action.to._address;
-        } else if (stateIsContract) {
+        } else {
             next = action.state;
         }
         uint256 nonce;
-        if (toIsContract && stateIsContract) {
-            _validate(action);
-            nonce = _nonce;
-        }
-        if (next != address(0)) {
-            next = getReceiverProxy(next);
-        }
-        if (next.isContract()) {
-            try
-                IERC5050Receiver(next).onActionReceived{value: msg.value}(
-                    action,
-                    nonce
-                )
-            {} catch Error(string memory err) {
-                revert(err);
-            } catch (bytes memory returnData) {
-                if (returnData.length > 0) {
-                    revert(string(returnData));
-                }
+        _validate(action);
+        nonce = _nonce;
+        try
+            IERC5050Receiver(next).onActionReceived{value: msg.value}(
+                action,
+                nonce
+            )
+        {} catch Error(string memory err) {
+            revert(err);
+        } catch (bytes memory returnData) {
+            if (returnData.length > 0) {
+                revert(string(returnData));
             }
         }
         emit SendAction(
@@ -375,21 +374,21 @@ contract YourCollectible is ERC721Enumerable, Ownable {
         );
     }
 
-    // function _isApprovedOrSelf(address account, bytes4 action)
-    //     internal
-    //     view
-    //     returns (bool)
-    // {
-    //     return (msg.sender == account ||
-    //         isApprovedForAllActions(account, msg.sender) ||
-    //         getApprovedForAction(account, action) == msg.sender);
-    // }
+    function _isApprovedOrSelf(address account, bytes4 action)
+        internal
+        view
+        returns (bool)
+    {
+        return (msg.sender == account ||
+            isApprovedForAllActions(account, msg.sender) ||
+            getApprovedForAction(account, action) == msg.sender);
+    }
 
-    // function _registerSendable(string memory action) internal {
-    //     _sendableActions.add(action);
-    // }
+    function _registerSendable(string memory action) internal {
+        _sendableActions.add(action);
+    }
 
-    // function _registerReceivable(string memory action) internal {
-    //     _receivableActions.add(action);
-    // }
+    function _registerReceivable(string memory action) internal {
+        _receivableActions.add(action);
+    }
 }
