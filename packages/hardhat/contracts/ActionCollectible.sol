@@ -46,7 +46,11 @@ contract ActionCollectible is
         publicLock = _lockAddress;
     }
 
-    function hasValidActionKey(address _user) public view returns (bool hasKey) {
+    function hasValidActionKey(address _user)
+        public
+        view
+        returns (bool hasKey)
+    {
         hasKey = publicLock.getHasValidKey(_user);
     }
 
@@ -243,6 +247,19 @@ contract ActionCollectible is
         require(
             _sendableActions.contains(action.selector),
             "ERC5050: invalid action"
+        );
+        require(_exists(action.from._tokenId), "ERC5050: from nonexistent token");
+        require(
+            ownerOf(action.from._tokenId) == msg.sender,
+            "ERC5050: sender not owner"
+        );
+        require(
+            _exists(action.to._tokenId),
+            "ERC5050: to nonexistent token"
+        );
+        require(
+            action.from._tokenId != action.to._tokenId ,
+            "ERC5050: action to Self"
         );
         require(
             _isApprovedOrSelf(action.user, action.selector),
