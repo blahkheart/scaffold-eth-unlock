@@ -10,7 +10,6 @@ pragma solidity ^0.8.0;
 
 */
 
-
 interface IActionsNFTState {
     enum TokenSlapState {
         DEFAULT,
@@ -21,13 +20,24 @@ interface IActionsNFTState {
     enum TokenCastState {
         CHILL,
         LUST,
-        RAGE
+        RAGE,
+        IMMUNE
     }
 
     struct TokenStats {
         uint256 strength;
         TokenSlapState state;
-        TokenCastState countenance;
+        TokenCastState vibes;
+    }
+    struct Property {
+        uint256 actionId;
+        string color;
+    }
+    struct ActionProperty {
+        Property slappedLoogie;
+        Property lustLoogie;
+        Property rageLoogie;
+        Property deadLoogie;
     }
 
     function registerToken(address _contract, uint256 tokenId) external;
@@ -46,4 +56,9 @@ interface IActionsNFTState {
         external
         view
         returns (TokenSlapState);
+
+    function getActionStateURI(uint256 tokenId)
+        external
+        view
+        returns (string memory);
 }

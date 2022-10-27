@@ -22,8 +22,8 @@ function Home({
 
   const [transferToAddresses, setTransferToAddresses] = useState({});
 
-  // 🧠 This effect will update yourCollectibles by polling when your balance changes
-  const balanceContract = useContractReader(readContracts, "YourCollectible", "balanceOf", [address]);
+  // 🧠 This effect will update actionCollectibles by polling when your balance changes
+  const balanceContract = useContractReader(readContracts, "ActionCollectible", "balanceOf", [address]);
   const [balance, setBalance] = useState();
 
   useEffect(() => {
@@ -32,19 +32,22 @@ function Home({
     }
   }, [balanceContract]);
 
-  const [yourCollectibles, setYourCollectibles] = useState();
+  const [actionCollectibles, setActionCollectibles] = useState();
 
   console.log("Home: " + address + ", Balance: " + balance);
-
+  // (async () => {
+  //   const tokenURI = await readContracts.ActionCollectible.tokenURI(1);
+  //   console.log("tokenUri", tokenURI)
+  // })()
   useEffect(() => {
-    const updateYourCollectibles = async () => {
+    const updateActionCollectibles = async () => {
       const collectibleUpdate = [];
       for (let tokenIndex = 0; tokenIndex < balance; ++tokenIndex) {
         try {
           console.log("Getting token index " + tokenIndex);
-          const tokenId = await readContracts.YourCollectible.tokenOfOwnerByIndex(address, tokenIndex);
+          const tokenId = await readContracts.ActionCollectible.tokenOfOwnerByIndex(address, tokenIndex);
           console.log("tokenId: " + tokenId);
-          const tokenURI = await readContracts.YourCollectible.tokenURI(tokenId);
+          const tokenURI = await readContracts.ActionCollectible.tokenURI(tokenId);
           const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64").toString();
           console.log("jsonManifestString: " + jsonManifestString);
 
@@ -59,10 +62,10 @@ function Home({
           console.log(err);
         }
       }
-      setYourCollectibles(collectibleUpdate.reverse());
+      setActionCollectibles(collectibleUpdate.reverse());
     }
     if (address && balance)
-      updateYourCollectibles();
+      updateActionCollectibles();
   }, [address, balance]);
 
   return (
@@ -70,7 +73,8 @@ function Home({
       <div style={{ maxWidth: 820, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
         {userSigner ? (
           <Button type={"primary"} onClick={() => {
-            tx(writeContracts.YourCollectible.mintItem())
+            // tx(writeContracts.ActionCollectible.mintItem())
+            tx(writeContracts.ActionCollectible.mintItem())
           }}>MINT</Button>
         ) : (
           <Button type={"primary"} onClick={loadWeb3Modal}>CONNECT WALLET</Button>
@@ -80,7 +84,7 @@ function Home({
       <div style={{ width: 820, margin: "auto", paddingBottom: 256 }}>
         <List
           bordered
-          dataSource={yourCollectibles}
+          dataSource={actionCollectibles}
           renderItem={item => {
             const id = item.id.toNumber();
 
@@ -95,7 +99,7 @@ function Home({
                     </div>
                   }
                 >
-                  <a href={"https://opensea.io/assets/" + (readContracts && readContracts.YourCollectible && readContracts.YourCollectible.address) + "/" + item.id} target="_blank">
+                  <a href={"https://opensea.io/assets/" + (readContracts && readContracts.ActionCollectible && readContracts.ActionCollectible.address) + "/" + item.id} target="_blank">
                     <img src={item.image} />
                   </a>
                   <div>{item.description}</div>
@@ -122,7 +126,7 @@ function Home({
                   <Button
                     onClick={() => {
                       console.log("writeContracts", writeContracts);
-                      tx(writeContracts.YourCollectible.transferFrom(address, transferToAddresses[id], id));
+                      tx(writeContracts.ActionCollectible.transferFrom(address, transferToAddresses[id], id));
                     }}
                   >
                     Transfer

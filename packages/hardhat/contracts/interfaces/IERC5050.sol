@@ -84,7 +84,7 @@ interface IERC5050Sender {
         address indexed _to,
         uint256 _toTokenId,
         address _state,
-        bytes _data
+        bytes4 _data
     );
 
     /// @dev This emits when the approved address for an account-action pair
@@ -128,7 +128,7 @@ interface IERC5050Receiver {
         address indexed _to,
         uint256 _toTokenId,
         address _state,
-        bytes _data
+        bytes4 _data
     );
 }
 
@@ -151,5 +151,5 @@ struct Action {
     Object from;
     Object to;
     address state;
-    bytes data;
+    bytes4 data;
 }

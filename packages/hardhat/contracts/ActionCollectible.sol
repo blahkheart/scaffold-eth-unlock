@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,6 +11,7 @@ import "./ToColor.sol";
 import {IERC5050Sender, IERC5050Receiver, Action} from "./interfaces/IERC5050.sol";
 import {ActionsSet} from "./libraries/ActionsSet.sol";
 import "./interfaces/IPublicLockV10.sol";
+import "./interfaces/IActionsNFTState.sol";
 
 // GET LISTED ON OPENSEA: https://testnets.opensea.io/get-listed/step-two
 
@@ -25,25 +27,36 @@ contract ActionCollectible is
     using ToColor for bytes3;
     using Counters for Counters.Counter;
     using ActionsSet for ActionsSet.Set;
-    IPublicLock public publicLock;
-    Counters.Counter private _tokenIds;
 
-    constructor() ERC721("Loogies", "LOOG") {}
+    Counters.Counter private _tokenIds;
+    IPublicLock public actionLock;
+
+    constructor() ERC721("Loogies", "LOOG") {
+        _registerAction("slap");
+        _registerSendable("cast");
+        _registerReceivable("immune");
+        _registerReceivable("rage");
+        _registerReceivable("lust");
+    }
 
     mapping(uint256 => bytes3) public color;
     mapping(uint256 => uint256) public chubbiness;
+    uint256 mintDeadline = block.timestamp + 24 hours;
+    address public stateContract;
+
     ActionsSet.Set private _receivableActions;
     ActionsSet.Set private _sendableActions;
-
     bytes32 private _hash;
     uint256 private _nonce;
-    uint256 mintDeadline = block.timestamp + 24 hours;
-
     mapping(address => mapping(bytes4 => address)) actionApprovals;
     mapping(address => mapping(address => bool)) operatorApprovals;
 
-    function setActionLock(IPublicLock _lockAddress) public onlyOwner {
-        publicLock = _lockAddress;
+    function setActionLockAddress(IPublicLock _lockAddress) public onlyOwner {
+        actionLock = _lockAddress;
+    }
+
+    function setStateContract(address _state) public onlyOwner {
+        stateContract = _state;
     }
 
     function hasValidActionKey(address _user)
@@ -51,7 +64,7 @@ contract ActionCollectible is
         view
         returns (bool hasKey)
     {
-        hasKey = publicLock.getHasValidKey(_user);
+        hasKey = actionLock.getHasValidKey(_user);
     }
 
     function mintItem() public returns (uint256) {
@@ -76,16 +89,31 @@ contract ActionCollectible is
         chubbiness[id] =
             35 +
             ((55 * uint256(uint8(predictableRandom[3]))) / 255);
-
         return id;
     }
 
-    function tokenURI(uint256 id) public view override returns (string memory) {
+    function tokenURI(uint256 id)
+        public
+        view
+        override(ERC721)
+        returns (string memory)
+    {
         require(_exists(id), "not exist");
+        if (stateContract != address(0)) {
+            string memory actionURI = IActionsNFTState(stateContract).getActionStateURI(id);
+            if (
+                keccak256(abi.encodePacked(actionURI)) !=
+                keccak256(abi.encodePacked(""))
+            ) {
+                return actionURI;
+            }
+        }
         string memory name = string(
             abi.encodePacked("Loogie #", id.toString())
         );
-        //   string memory description = string(abi.encodePacked('This Loogie is the color #',color[id].toColor(),' with a chubbiness of ',chubbiness[id].toString(),'!!!'));
+        string memory description = string(
+            abi.encodePacked("Action Loogies ready for some fun!!!")
+        );
         string memory image = Base64.encode(bytes(generateSVGofTokenById(id)));
 
         return
@@ -97,8 +125,8 @@ contract ActionCollectible is
                             abi.encodePacked(
                                 '{"name":"',
                                 name,
-                                //   '", "description":"',
-                                //   description,
+                                '", "description":"',
+                                description,
                                 '", "external_url":"https://burnyboys.com/token/',
                                 id.toString(),
                                 '", "attributes": [{"trait_type": "color", "value": "#',
@@ -159,27 +187,27 @@ contract ActionCollectible is
         return render;
     }
 
-    // function setProxyRegistry(address registry) external virtual onlyOwner {
-    //     _setProxyRegistry(registry);
-    // }
+    //ERC5050 Implementation
 
     function _registerAction(string memory action) internal {
         _registerSendable(action);
         _registerReceivable(action);
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    // function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165) returns (bool) {
-    //     return
-    //         interfaceId == type(IERC5050Sender).interfaceId ||
-    //         interfaceId == type(IERC5050Receiver).interfaceId ||
-    //         super.supportsInterface(interfaceId);
-    // }
+    function _registerSendable(string memory action) internal {
+        _sendableActions.add(action);
+    }
+
+    function _registerReceivable(string memory action) internal {
+        _receivableActions.add(action);
+    }
 
     function receivableActions() external view returns (string[] memory) {
         return _receivableActions.names();
+    }
+ 
+    function sendableActions() external view returns (string[] memory) {
+        return _sendableActions.names();
     }
 
     function onActionReceived(Action calldata action, uint256 nonce)
@@ -194,7 +222,6 @@ contract ActionCollectible is
         internal
         virtual
     {
-        // if (action.state != address(0)) {
         require(action.state != address(0), "Zero address state");
         address next = action.state;
         require(next.isContract(), "ERC5050: invalid state");
@@ -212,25 +239,7 @@ contract ActionCollectible is
                 }
             }
         }
-        // }
-        // else {
-        // Implement on state
-        //     address next = action.to._address;
-        //     require(next.isContract(), "ERC5050: invalid state");
-        //     if (next == address(this)) {
-        //         require(
-        //             _receivableActions.contains(action.selector),
-        //             "ERC5050: invalid action"
-        //         );
-        //         require(
-        //             (action.from._address != address(0) &&
-        //                 action.user == tx.origin) || action.user == msg.sender,
-        //             "ERC5050: invalid sender"
-        //         );
-        //         // Do the action here
 
-        //     }
-        // }
         emit ActionReceived(
             action.selector,
             action.user,
@@ -248,17 +257,17 @@ contract ActionCollectible is
             _sendableActions.contains(action.selector),
             "ERC5050: invalid action"
         );
-        require(_exists(action.from._tokenId), "ERC5050: from nonexistent token");
+        require(
+            _exists(action.from._tokenId),
+            "ERC5050: from nonexistent token"
+        );
         require(
             ownerOf(action.from._tokenId) == msg.sender,
             "ERC5050: sender not owner"
         );
+        require(_exists(action.to._tokenId), "ERC5050: to nonexistent token");
         require(
-            _exists(action.to._tokenId),
-            "ERC5050: to nonexistent token"
-        );
-        require(
-            action.from._tokenId != action.to._tokenId ,
+            action.from._tokenId != action.to._tokenId,
             "ERC5050: action to Self"
         );
         require(
@@ -266,14 +275,48 @@ contract ActionCollectible is
             "ERC5050: unapproved sender"
         );
         // require(
-        //     action.from._address == address(this),
-        //     "ERC5050: invalid from address"
-        // );
-        // require(
         //     hasValidActionKey(msg.sender),
         //     "Invalid key for action"
         // );
         _sendAction(action);
+    }
+    
+    function _sendAction(Action memory action) private {
+        address next;
+        bool toIsContract = action.to._address.isContract();
+        bool stateIsContract = action.state.isContract();
+        require(toIsContract, "Send Action: Invalid 'to' contract");
+        require(stateIsContract, "Send Action: Invalid state");
+        if (action.to._address == address(this)) {
+            next = action.to._address;
+        } else {
+            next = action.state;
+        }
+        uint256 nonce;
+        _validate(action);
+        nonce = _nonce;
+        try
+            IERC5050Receiver(next).onActionReceived{value: msg.value}(
+                action,
+                nonce
+            )
+        {} catch Error(string memory err) {
+            revert(err);
+        } catch (bytes memory returnData) {
+            if (returnData.length > 0) {
+                revert(string(returnData));
+            }
+        }
+        emit SendAction(
+            action.selector,
+            action.user,
+            action.from._address,
+            action.from._tokenId,
+            action.to._address,
+            action.to._tokenId,
+            action.state,
+            action.data
+        );
     }
 
     function isValid(bytes32 actionHash, uint256 nonce)
@@ -282,10 +325,6 @@ contract ActionCollectible is
         returns (bool)
     {
         return actionHash == _hash && nonce == _nonce;
-    }
-
-    function sendableActions() external view returns (string[] memory) {
-        return _sendableActions.names();
     }
 
     function approveForAction(
@@ -334,44 +373,6 @@ contract ActionCollectible is
         return operatorApprovals[_account][_operator];
     }
 
-    function _sendAction(Action memory action) private {
-        address next;
-        bool toIsContract = action.to._address.isContract();
-        bool stateIsContract = action.state.isContract();
-        require(toIsContract, "Send Action: Invalid 'to' contract");
-        require(stateIsContract, "Send Action: Invalid state");
-        if (action.to._address == address(this)) {
-            next = action.to._address;
-        } else {
-            next = action.state;
-        }
-        uint256 nonce;
-        _validate(action);
-        nonce = _nonce;
-        try
-            IERC5050Receiver(next).onActionReceived{value: msg.value}(
-                action,
-                nonce
-            )
-        {} catch Error(string memory err) {
-            revert(err);
-        } catch (bytes memory returnData) {
-            if (returnData.length > 0) {
-                revert(string(returnData));
-            }
-        }
-        emit SendAction(
-            action.selector,
-            action.user,
-            action.from._address,
-            action.from._tokenId,
-            action.to._address,
-            action.to._tokenId,
-            action.state,
-            action.data
-        );
-    }
-
     function _validate(Action memory action) internal {
         ++_nonce;
         _hash = bytes32(
@@ -399,13 +400,5 @@ contract ActionCollectible is
         return (msg.sender == account ||
             isApprovedForAllActions(account, msg.sender) ||
             getApprovedForAction(account, action) == msg.sender);
-    }
-
-    function _registerSendable(string memory action) internal {
-        _sendableActions.add(action);
-    }
-
-    function _registerReceivable(string memory action) internal {
-        _receivableActions.add(action);
     }
 }

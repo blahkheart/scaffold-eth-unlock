@@ -17,16 +17,31 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId();
 
-  await deploy("YourCollectible", {
+  await deploy("ActionCollectible", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
     // args: [ "Hello", ethers.utils.parseEther("1.5") ],
     log: true,
     waitConfirmations: 5,
   });
+  const actionCollectible = await ethers.getContract(
+    "ActionCollectible",
+    deployer
+  );
+  loogies = actionCollectible.address;
 
+  // deploy action NFT state contract
+  await deploy("ActionCollectibleState", {
+    // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
+    from: deployer,
+    args: [loogies],
+    log: true,
+    waitConfirmations: 5,
+  });
+
+  const tx = await actionCollectible.transferOwnership("0xCA7632327567796e51920F6b16373e92c7823854");
+  console.log(`Transferring Loogies ownership with Txn: ${tx.hash} `)
   // Getting a previously deployed contract
-  const YourCollectible = await ethers.getContract("YourCollectible", deployer);
   /*  await YourCollectible.setPurpose("Hello");
   
     // To take ownership of YourCollectible using the ownable library uncomment next line and add the 
@@ -79,4 +94,4 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   //   console.error(error);
   // }
 };
-module.exports.tags = ["YourCollectible"];
+module.exports.tags = ["ActionCollectible", "ActionCollectibleState"];
