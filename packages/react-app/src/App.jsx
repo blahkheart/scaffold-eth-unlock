@@ -29,7 +29,7 @@ import externalContracts from "./contracts/external_contracts";
 // contracts
 import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
-import { Home } from "./views";
+import { Home, Actions } from "./views";
 import { useStaticJsonRPC } from "./hooks";
 
 const { ethers } = require("ethers");
@@ -245,7 +245,10 @@ function App(props) {
       />
       <Menu style={{ textAlign: "center", marginTop: 20 }} selectedKeys={[location.pathname]} mode="horizontal">
         <Menu.Item key="/">
-          <Link to="/">Oh Pandas</Link>
+          <Link to="/">Loogies</Link>
+        </Menu.Item>
+        <Menu.Item key="/Actions">
+          <Link to="/Actions">Actions</Link>
         </Menu.Item>
         <Menu.Item key="/debug">
           <Link to="/debug">Smart Contracts</Link>
@@ -262,6 +265,16 @@ function App(props) {
             tx={tx}
             loadWeb3Modal={loadWeb3Modal}
             blockExplorer={blockExplorer}
+            address={address}
+          />
+        </Route>
+        <Route exact path="/Actions">
+          {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
+          <Actions
+            userSigner={userSigner}
+            readContracts={readContracts}
+            writeContracts={writeContracts}
+            tx={tx}
             address={address}
           />
         </Route>

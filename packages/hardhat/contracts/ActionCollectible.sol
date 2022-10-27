@@ -30,6 +30,12 @@ contract ActionCollectible is
 
     Counters.Counter private _tokenIds;
     IPublicLock public actionLock;
+    
+    bytes4 constant public CAST_SELECTOR = bytes4(keccak256("cast"));
+    bytes4 constant public SLAP_SELECTOR = bytes4(keccak256("slap"));
+    bytes4 constant public CAST_IMMUNE_SELECTOR = bytes4(keccak256("immune"));
+    bytes4 constant public CAST_LUST_SELECTOR = bytes4(keccak256("lust"));
+    bytes4 constant public CAST_RAGE_SELECTOR = bytes4(keccak256("rage"));
 
     constructor() ERC721("Loogies", "LOOG") {
         _registerAction("slap");

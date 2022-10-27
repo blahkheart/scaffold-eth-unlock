@@ -38,6 +38,7 @@ interface IActionsNFTState {
         Property lustLoogie;
         Property rageLoogie;
         Property deadLoogie;
+        Property immuneLoogie;
     }
 
     function registerToken(address _contract, uint256 tokenId) external;
@@ -61,4 +62,6 @@ interface IActionsNFTState {
         external
         view
         returns (string memory);
+
+    function healAfterExpiry(address _contract, uint256 _tokenId) external;
 }

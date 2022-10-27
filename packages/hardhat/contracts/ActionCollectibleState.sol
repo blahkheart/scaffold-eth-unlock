@@ -11,7 +11,9 @@ pragma solidity ^0.8.6;
 /******************************************
  * TODO
  * Check that token exists on source contract during token registration
- * If token does not survive slap set token properties and URI to dead token
+ * Done - If token does not survive slap set token properties and URI to dead token
+ * Done - set lastActionBlock for tokens onActionReceived()
+ * Set token to default state after action expiry period
  * ************************************/
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
@@ -50,7 +52,7 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
     mapping(uint256 => uint256) public chubbiness;
     mapping(uint256 => string) actionURI;
     mapping(uint256 => uint256) lastActionBlock;
-
+    uint256 public actionDurationBlocks = 15000;
     bytes4 constant CAST_SELECTOR = bytes4(keccak256("cast"));
     // Receivable actions
     bytes4 constant SLAP_SELECTOR = bytes4(keccak256("slap"));
@@ -60,10 +62,11 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
 
     ActionProperty actionProperties =
         ActionProperty(
-            Property({actionId: 7474, color: "75010f"}),
-            Property({actionId: 6969, color: "0f33a0"}),
-            Property({actionId: 9999, color: "f5070b"}),
-            Property({actionId: 0, color: "fffff"})
+            Property({actionId: 777, color: "75010f"}),
+            Property({actionId: 69, color: "0f33a0"}),
+            Property({actionId: 999, color: "f5070b"}),
+            Property({actionId: 0, color: "fafaed"}),
+            Property({actionId: 100, color: ""})
         );
 
     constructor(ActionCollectibleContract _actionLoogies) {
@@ -137,7 +140,7 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
         view
         returns (string memory uri)
     {
-        if (block.number - lastActionBlock[_tokenId] <= 10000) {
+        if (block.number - lastActionBlock[_tokenId] <= actionDurationBlocks) {
             uri = actionURI[_tokenId];
         } else {
             if (
@@ -168,6 +171,16 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
         returns (uint256)
     {
         return stats[_contract][tokenId].strength;
+    }
+
+    function healAfterExpiry(address _contract, uint256 _tokenId) public {
+        if ((block.number - lastActionBlock[_tokenId]) > actionDurationBlocks) {
+            stats[_contract][_tokenId] = TokenStats(
+                10,
+                TokenSlapState.DEFAULT,
+                TokenCastState.CHILL
+            );
+        }
     }
 
     function getState(address _contract, uint256 tokenId)
@@ -278,6 +291,8 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
                 _action.to._address.isContract(),
             "State: invalid to and from"
         );
+        // reset token stats if previous action has expired
+        healAfterExpiry(_action.to._address, _action.to._tokenId);
         // call appropriate action handler
         if (_action.selector == CAST_SELECTOR) {
             _onCastReceived(_action);
@@ -291,18 +306,22 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
         uint256 _actionId,
         string memory _color
     ) internal {
-        bytes32 predictableRandom = keccak256(
-            abi.encodePacked(
-                blockhash(block.number - 1),
-                msg.sender,
-                address(this),
-                _actionId
-            )
-        );
-        color[_tokenId] = _color;
-        chubbiness[_tokenId] =
-            35 +
-            ((55 * uint256(uint8(predictableRandom[3]))) / 255);
+        uint256 _immuneId = actionProperties.immuneLoogie.actionId;
+        if (_actionId != _immuneId) {
+            bytes32 predictableRandom = keccak256(
+                abi.encodePacked(
+                    blockhash(block.number - 1),
+                    msg.sender,
+                    address(this),
+                    _actionId
+                )
+            );
+            color[_tokenId] = _color;
+            chubbiness[_tokenId] =
+                35 +
+                ((55 * uint256(uint8(predictableRandom[3]))) / 255);
+        }
+        lastActionBlock[_tokenId] = block.number;
     }
 
     function _setEnchantedTokenProperties(
@@ -319,14 +338,20 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
             _actionId = actionProperties.lustLoogie.actionId;
             _color = actionProperties.lustLoogie.color;
         }
+        if (_actionSelector == CAST_IMMUNE_SELECTOR) {
+            _actionId = actionProperties.immuneLoogie.actionId;
+        }
         _setTokenProperties(_toTokenId, _actionId, _color);
     }
 
-    function _setSlappedTokenProperties(uint256 _tokenId) internal {
-        uint256 _actionId;
+    function _setSlappedTokenProperties(uint256 _tokenId, uint256 _actionId)
+        internal
+    {
         string memory _color;
-        _actionId = actionProperties.slappedLoogie.actionId;
         _color = actionProperties.slappedLoogie.color;
+        if (_actionId == actionProperties.deadLoogie.actionId) {
+            _color = actionProperties.deadLoogie.color;
+        }
         _setTokenProperties(_tokenId, _actionId, _color);
     }
 
@@ -351,8 +376,10 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
                 fromStats.strength +
                 (fromStats.strength % toStats.strength);
             actionURI[_action.to._tokenId] = "";
-        } else {
+            _setTokenStats(_action.from, fromStats);
+            _setTokenStats(_action.to, toStats);
             _setEnchantedTokenProperties(_action.to._tokenId, castSelector);
+        } else {
             fromStats.strength =
                 fromStats.strength -
                 (fromStats.strength % toStats.strength);
@@ -367,12 +394,16 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
             // change token URI
             string memory uri = tokenURI(_action.to._tokenId, _action);
             actionURI[_action.to._tokenId] = uri;
+            _setTokenStats(_action.from, fromStats);
+            _setTokenStats(_action.to, toStats);
+            _setEnchantedTokenProperties(_action.to._tokenId, castSelector);
         }
     }
 
     function _onSlapReceived(Action calldata action) internal {
         TokenStats memory fromStats = _getTokenStats(action.from);
         TokenStats memory toStats = _getTokenStats(action.to);
+        uint256 _actionId;
         require(
             fromStats.strength > 0 && toStats.strength > 0,
             "0 strength token"
@@ -401,12 +432,16 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
             if (delta >= toStats.strength) {
                 toStats.strength = 0;
                 toStats.state = TokenSlapState.DEAD;
+                _actionId = actionProperties.deadLoogie.actionId;
+                _setTokenStats(action.to, toStats);
+                _setSlappedTokenProperties(action.to._tokenId, _actionId);
             } else {
                 toStats.strength -= delta;
                 toStats.state = TokenSlapState.SLAPPED;
+                _actionId = actionProperties.slappedLoogie.actionId;
+                _setTokenStats(action.to, toStats);
+                _setSlappedTokenProperties(action.to._tokenId, _actionId);
             }
-            _setTokenStats(action.to, toStats);
-            _setSlappedTokenProperties(action.to._tokenId);
             string memory uri = tokenURI(action.to._tokenId, action);
             actionURI[action.to._tokenId] = uri;
         } else {
@@ -419,12 +454,16 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
             if (delta >= fromStats.strength) {
                 fromStats.strength = 0;
                 fromStats.state = TokenSlapState.DEAD;
+                _actionId = actionProperties.deadLoogie.actionId;
+                _setTokenStats(action.from, fromStats);
+                _setSlappedTokenProperties(action.from._tokenId, _actionId);
             } else {
                 fromStats.strength -= delta;
                 fromStats.state = TokenSlapState.SLAPPED;
+                _actionId = actionProperties.slappedLoogie.actionId;
+                _setTokenStats(action.from, fromStats);
+                _setSlappedTokenProperties(action.from._tokenId, _actionId);
             }
-            _setTokenStats(action.from, fromStats);
-            _setSlappedTokenProperties(action.from._tokenId);
             string memory uri = tokenURI(action.from._tokenId, action);
             actionURI[action.from._tokenId] = uri;
         }
