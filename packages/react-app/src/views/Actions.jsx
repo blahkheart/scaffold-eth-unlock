@@ -4,9 +4,13 @@ import { Address, AddressInput } from "../components";
 import { useContractReader } from "eth-hooks";
 const ethers = require("ethers");
 const { Option } = Select;
-function Actions({ userSigner, readContracts, writeContracts, tx, address }) {
+function Actions({ readContracts, writeContracts, tx, address }) {
   const [receivableActions, setReceivableActions] = useState([]);
   const [sendableActions, setSendableActions] = useState([]);
+  const [contractData, setContractData] = useState({});
+  const [selectedAction, setSelectedAction] = useState();
+  const [fromTokenId, setFromTokenId] = useState();
+  const [toTokenId, setToTokenId] = useState();
   const [actionCollectibles, setActionCollectibles] = useState();
   const [castType, setCastType] = useState();
   const [balance, setBalance] = useState();
@@ -18,6 +22,29 @@ function Actions({ userSigner, readContracts, writeContracts, tx, address }) {
       setBalance(balanceContract);
     }
   }, [balanceContract]);
+
+  useEffect(() => {
+    let stateContractAddress, loogieContractAddress, castActionSelector, slapActionSelector, data;
+    const readyContractData = async () => {
+      try {
+        stateContractAddress = await readContracts.ActionCollectibleState.address;
+        loogieContractAddress = await readContracts.ActionCollectible.address;
+        castActionSelector = await readContracts.ActionCollectible.CAST_SELECTOR();
+        slapActionSelector = await readContracts.ActionCollectible.SLAP_SELECTOR();
+        data = {
+          stateContract: stateContractAddress,
+          fromContract: loogieContractAddress,
+          toContract: loogieContractAddress,
+          castSelector: castActionSelector,
+          slapSelector: slapActionSelector,
+        };
+        setContractData(data);
+      } catch (e) {
+        console.log(e);
+      }
+    };
+    readyContractData();
+  }, [readContracts]);
 
   useEffect(() => {
     const _actions = [];
@@ -85,13 +112,12 @@ function Actions({ userSigner, readContracts, writeContracts, tx, address }) {
     if (address && balance) updateActionCollectibles();
   }, [address, balance]);
 
-  const handleActionSelect = (e) => {
-    console.log("action selected", e);
+  const handleActionSelect = e => {
+    setSelectedAction(e);
   };
 
   const handleCastSelect = e => {
     const value = e.target.value;
-    console.log("radio checked", e.target.value);
     setCastType(value);
   };
   const capitalizeString = string => {
@@ -137,11 +163,11 @@ function Actions({ userSigner, readContracts, writeContracts, tx, address }) {
                   {/* </a> */}
                   <div>{item.description}</div>
                 </Card>
-                <div style={{ width: "100%", padding: 15 }}>
+                <div className="action-controls" style={{ width: "100%", padding: 15 }}>
                   {sendableActions.length && receivableActions.length ? (
-                    <div>
-                      <h3>Send Action</h3>
-                      <div>
+                    <div style={{ textAlign: "left" }}>
+                      <h3 style={{ textAlign: "center" }}>Send Action</h3>
+                      <div className="actions-form-group">
                         <span>Choose action: </span>
                         <Select
                           defaultValue={sendableActions[0].name}
@@ -156,27 +182,65 @@ function Actions({ userSigner, readContracts, writeContracts, tx, address }) {
                           ))}
                         </Select>
                       </div>
-                      <div>
-                        <Radio.Group onChange={handleCastSelect} value={castType}>
-                          {receivableActions.map(item =>
-                            item.name !== "slap" ? (
-                              <Radio value={item.selector}>{capitalizeString(item.name)}</Radio>
-                            ) : (
-                              ""
-                            ),
-                          )}
-                        </Radio.Group>
-                      </div>
-                      <div>
+                      {selectedAction && selectedAction === ethers.utils.id("cast").substring(0, 10) ? (
+                        <div className="actions-form-group">
+                          <Radio.Group onChange={handleCastSelect} value={castType}>
+                            {receivableActions.map(item =>
+                              item.name !== "slap" ? (
+                                <Radio value={item.selector}>{capitalizeString(item.name)}</Radio>
+                              ) : (
+                                ""
+                              ),
+                            )}
+                          </Radio.Group>
+                        </div>
+                      ) : null}
+
+                      <div className="actions-form-group">
                         <span>From tokenID: </span>
-                        <Input name="fromToken" type="number" value={id} placeholder="Token ID" />
+                        <Input name="fromToken" disabled type="number" value={id} placeholder="Token ID" />
                       </div>
-                      <div>
+                      <div className="actions-form-group">
                         <span>To tokenID: </span>
-                        <Input name="fromToken" type="number" value="" placeholder="Token ID" />
+                        <Input
+                          name="fromToken"
+                          type="number"
+                          value={toTokenId}
+                          onChange={e => {
+                            const _tokenId = e.target.value;
+                            setToTokenId(_tokenId);
+                            setFromTokenId(id);
+                          }}
+                          placeholder="Token ID"
+                        />
                       </div>
                       <div>
-                        <Button type="primary">Send action</Button>
+                        <Button
+                          onClick={() => {
+                            const sendAction = async () => {
+                              try {
+                                const sendParams = [
+                                  selectedAction,
+                                  address,
+                                  [contractData.fromContract, fromTokenId],
+                                  [contractData.toContract, toTokenId],
+                                  contractData.stateContract,
+                                  castType ? castType : selectedAction,
+                                ];
+                                console.log("send params", sendParams)
+                                // const sendParams = []
+                                const sendAction = tx(await writeContracts.ActionCollectible.sendAction(sendParams));
+                                console.log("send action txn ", sendAction.hash);
+                              } catch (e) {
+                                console.log(e);
+                              }
+                            }
+                            sendAction()
+                          }}
+                          type="primary"
+                        >
+                          Send action
+                        </Button>
                       </div>
                     </div>
                   ) : (

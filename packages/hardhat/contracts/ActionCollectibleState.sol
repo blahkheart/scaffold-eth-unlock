@@ -25,11 +25,6 @@ import "base64-sol/base64.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ToColor.sol";
 
-// import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
-// import {ERC5050ProxyRegistry} from "./ERC5050ProxyRegistry.sol";
-
 abstract contract ActionCollectibleContract {
     function ownerOf(uint256 tokenId)
         external
@@ -62,11 +57,11 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
 
     ActionProperty actionProperties =
         ActionProperty(
-            Property({actionId: 777, color: "75010f"}),
-            Property({actionId: 69, color: "0f33a0"}),
-            Property({actionId: 999, color: "f5070b"}),
+            Property({actionId: 7777, color: "75010f"}),
+            Property({actionId: 6969, color: "0f33a0"}),
+            Property({actionId: 9999, color: "f5070b"}),
             Property({actionId: 0, color: "fafaed"}),
-            Property({actionId: 100, color: ""})
+            Property({actionId: 1000, color: ""})
         );
 
     constructor(ActionCollectibleContract _actionLoogies) {
@@ -174,13 +169,15 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
     }
 
     function healAfterExpiry(address _contract, uint256 _tokenId) public {
-        if ((block.number - lastActionBlock[_tokenId]) > actionDurationBlocks) {
-            stats[_contract][_tokenId] = TokenStats(
-                10,
-                TokenSlapState.DEFAULT,
-                TokenCastState.CHILL
-            );
-        }
+        require(
+            (block.number - lastActionBlock[_tokenId]) > actionDurationBlocks,
+            "Action not expired"
+        );
+        stats[_contract][_tokenId] = TokenStats(
+            10,
+            TokenSlapState.DEFAULT,
+            TokenCastState.CHILL
+        );
     }
 
     function getState(address _contract, uint256 tokenId)
@@ -291,12 +288,20 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
                 _action.to._address.isContract(),
             "State: invalid to and from"
         );
-        // reset token stats if previous action has expired
-        healAfterExpiry(_action.to._address, _action.to._tokenId);
+        // reset token state & vibes if previous action has expired
+        if (
+            (block.number - lastActionBlock[_action.to._tokenId]) >
+            actionDurationBlocks
+        ) {
+            TokenStats memory toStats = _getTokenStats(_action.to);
+            toStats.state = TokenSlapState.DEFAULT;
+            toStats.vibes = TokenCastState.CHILL;
+            _setTokenStats(_action.to, toStats);
+        }
         // call appropriate action handler
         if (_action.selector == CAST_SELECTOR) {
             _onCastReceived(_action);
-        } else {
+        } else if(_action.selector == SLAP_SELECTOR) {
             _onSlapReceived(_action);
         }
     }
@@ -392,11 +397,11 @@ contract ActionCollectibleState is IERC5050Receiver, IActionsNFTState, Ownable {
                 toStats.vibes = TokenCastState.RAGE;
             }
             // change token URI
-            string memory uri = tokenURI(_action.to._tokenId, _action);
-            actionURI[_action.to._tokenId] = uri;
             _setTokenStats(_action.from, fromStats);
             _setTokenStats(_action.to, toStats);
             _setEnchantedTokenProperties(_action.to._tokenId, castSelector);
+            string memory uri = tokenURI(_action.to._tokenId, _action);
+            actionURI[_action.to._tokenId] = uri;
         }
     }
 

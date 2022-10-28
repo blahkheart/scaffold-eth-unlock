@@ -271,7 +271,6 @@ function App(props) {
         <Route exact path="/Actions">
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
           <Actions
-            userSigner={userSigner}
             readContracts={readContracts}
             writeContracts={writeContracts}
             tx={tx}
