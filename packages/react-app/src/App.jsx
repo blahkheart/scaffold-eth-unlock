@@ -251,11 +251,14 @@ function App(props) {
   const unlockData = JSON.parse(window.localStorage.getItem("unlock"));
   const publicLockData = JSON.parse(window.localStorage.getItem("publicLock"));
   useEffect(() => {
-    if (unlockData && publicLockData) {
+    if (unlockData || publicLockData) {
       const unlockAddress = unlockData.unlockAddress;
       const publicLockAddress = publicLockData.publicLockAddress;
       setDeployedUnlockAddress(unlockAddress);
       setPublicLockAddress(publicLockAddress);
+    } else {
+      setDeployedUnlockAddress("0x627118a4fB747016911e5cDA82e2E77C531e8206");
+      setPublicLockAddress("0x4604392da245ada386bf90118ace7e787e2c221f");
     }
   }, []);
 
